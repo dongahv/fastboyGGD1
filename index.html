@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Đổi Tên File Hàng Loạt - Google Drive</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; max-width: 800px; line-height: 1.6; }
+        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; background: #f9f9f9; }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { padding: 10px 15px; background: #4285F4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #357ae8; }
+        #signOutBtn { background: #db4437; }
+        #signOutBtn:hover { background: #c53929; }
+        #console { background: #222; color: #0f0; padding: 15px; height: 300px; overflow-y: scroll; font-family: monospace; border-radius: 4px; margin-top: 20px;}
+    </style>
+</head>
+<body>
+
+    <h2>Đổi Tên File Hàng Loạt - Google Drive</h2>
+    <div class="container">
+        <div class="form-group" id="authSection">
+            <label>1. Nhập Client ID của bạn (KHÔNG nhập Client Secret):</label>
+            <input type="text" id="clientId" placeholder="VD: 123456789-abcde.apps.googleusercontent.com">
+            <br><br>
+            <button id="authBtn" onclick="handleAuthClick()">Kết nối với Google Drive</button>
+            <button id="signOutBtn" onclick="handleSignoutClick()" style="display: none;">Đăng xuất</button>
+        </div>
+
+        <hr>
+
+        <div id="actionSection" style="display: none;">
+            <div class="form-group">
+                <label>2. Nhập Folder ID chứa các file cần đổi tên:</label>
+                <small><i>(Mở thư mục trên Drive, copy chuỗi ký tự ở cuối đường dẫn URL)</i></small>
+                <input type="text" id="folderId" placeholder="VD: 1A2B3C4D5E6F7G8H9I">
+            </div>
+
+            <div class="form-group">
+                <label>3. Chuỗi cần tìm (Find):</label>
+                <input type="text" id="findText" placeholder="VD: bai-tap">
+            </div>
+
+            <div class="form-group">
+                <label>4. Thay thế bằng (Replace):</label>
+                <input type="text" id="replaceText" placeholder="VD: assignment">
+            </div>
+
+            <button onclick="startRenaming()">Bắt Đầu Đổi Tên</button>
+        </div>
+    </div>
+
+    <div id="console">Khu vực hiển thị trạng thái...<br></div>
+
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <script>
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function log(msg) {
+            const consoleDiv = document.getElementById('console');
+            consoleDiv.innerHTML += msg + "<br>";
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+        }
+
+        function gisLoaded() {
+            gisInited = true;
+        }
+
+        function handleAuthClick() {
+            const clientId = document.getElementById('clientId').value.trim();
+            if (!clientId) {
+                alert("Vui lòng nhập Client ID!");
+                return;
+            }
+
+            // Khởi tạo Token Client dựa trên Client ID vừa nhập
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: SCOPES,
+                callback: '', // Sẽ được gán ngay bên dưới
+            });
+
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                document.getElementById('authBtn').style.display = 'none';
+                document.getElementById('clientId').disabled = true;
+                document.getElementById('signOutBtn').style.display = 'inline-block';
+                document.getElementById('actionSection').style.display = 'block';
+                log("Đăng nhập thành công!");
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+            }
+            document.getElementById('authBtn').style.display = 'inline-block';
+            document.getElementById('clientId').disabled = false;
+            document.getElementById('signOutBtn').style.display = 'none';
+            document.getElementById('actionSection').style.display = 'none';
+            log("Đã đăng xuất.");
+        }
+
+        async function startRenaming() {
+            const folderId = document.getElementById('folderId').value.trim();
+            const findText = document.getElementById('findText').value;
+            const replaceText = document.getElementById('replaceText').value;
+
+            if (!folderId) {
+                alert("Vui lòng nhập Folder ID.");
+                return;
+            }
+            if (!findText) {
+                alert("Vui lòng nhập chuỗi cần tìm kiếm để thay thế.");
+                return;
+            }
+
+            log("Đang tải danh sách file...");
+
+            try {
+                // Lấy danh sách file trong thư mục
+                let response = await gapi.client.drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false`,
+                    fields: 'files(id, name)',
+                    pageSize: 1000 // Tối đa 1000 file mỗi lần gọi
+                });
+
+                const files = response.result.files;
+                if (!files || files.length === 0) {
+                    log("Không tìm thấy file nào trong thư mục này.");
+                    return;
+                }
+
+                log(`Đã tìm thấy ${files.length} file. Đang tiến hành kiểm tra đổi tên...`);
+                let count = 0;
+
+                for (let file of files) {
+                    if (file.name.includes(findText)) {
+                        // Tính toán tên mới
+                        let newName = file.name.split(findText).join(replaceText);
+                        
+                        log(`Đổi tên: [${file.name}] ➔ [${newName}]...`);
+                        
+                        // Gọi API cập nhật tên file
+                        await gapi.client.drive.files.update({
+                            fileId: file.id,
+                            resource: { name: newName }
+                        });
+                        count++;
+                    }
+                }
+
+                log(`<span style="color: yellow;">Hoàn tất! Đã đổi tên thành công ${count} file.</span>`);
+
+            } catch (err) {
+                log(`<span style="color: red;">Lỗi: ${err.message}</span>`);
+            }
+        }
+    </script>
+</body>
+</html>
