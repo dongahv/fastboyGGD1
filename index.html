@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bulk File Renamer</title>
+    <title>Drive Bulk Renamer Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -20,25 +20,24 @@
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
     <div id="app" class="flex flex-col min-h-screen">
-        <!-- Header -->
         <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center space-x-3">
                         <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100">
-                            <i data-lucide="file-archive" class="w-6 h-6"></i>
+                            <i data-lucide="cloud-cog" class="w-6 h-6"></i>
                         </div>
                         <div>
-                            <h1 class="text-lg font-bold text-slate-800 leading-tight">Bulk Renamer Pro</h1>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Quản lý tệp & Gom nhóm AI</p>
+                            <h1 class="text-lg font-bold text-slate-800 leading-tight">Drive Renamer Pro</h1>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sửa tên trực tiếp trên đám mây</p>
                         </div>
                     </div>
                     
                     <div id="action-buttons" class="hidden flex items-center gap-3">
-                        <button onclick="downloadZip()" class="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-md active:scale-95">
-                            <i data-lucide="download" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Tải Zip</span>
-                            <span id="file-count-badge" class="bg-indigo-500 text-white px-2 py-0.5 rounded-lg text-xs">0</span>
+                        <button onclick="applyRenameToDrive()" class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-all shadow-md active:scale-95">
+                            <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Cập Nhật Lên Drive</span>
+                            <span id="file-count-badge" class="bg-emerald-500 text-white px-2 py-0.5 rounded-lg text-xs">0</span>
                         </button>
                     </div>
                 </div>
@@ -48,8 +47,36 @@
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                <!-- Left: Settings Sidebar -->
                 <div class="lg:col-span-4 space-y-6">
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden border-t-4 border-t-blue-500">
+                        <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                            <i data-lucide="hard-drive" class="w-4 h-4 text-blue-500"></i>
+                            <h2 class="font-bold text-slate-700 text-sm uppercase tracking-wide">Kết Nối Google Drive</h2>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div id="auth-section" class="space-y-3">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Client ID của bạn</label>
+                                <input type="text" id="clientId" placeholder="Nhập Client ID..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-mono">
+                                <button onclick="handleAuthClick()" id="btn-login" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-md">
+                                    <i data-lucide="log-in" class="w-4 h-4"></i> Đăng nhập Google
+                                </button>
+                            </div>
+
+                            <div id="drive-section" class="hidden space-y-3 pt-2 border-t border-slate-100">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-emerald-500 flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> Đã kết nối</span>
+                                    <button onclick="handleSignoutClick()" class="text-[10px] text-red-500 font-bold uppercase hover:underline">Đăng xuất</button>
+                                </div>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Folder ID chứa file</label>
+                                <input type="text" id="folderId" placeholder="VD: 1A2B3C..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-mono">
+                                <button onclick="fetchDriveFiles()" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl font-bold text-sm transition-all">
+                                    <i data-lucide="folder-sync" class="w-4 h-4"></i> Tải danh sách file
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
                             <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
@@ -57,14 +84,12 @@
                         </div>
                         
                         <div class="p-6 space-y-5">
-                            <!-- Field: ID -->
                             <div class="space-y-1.5">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Mã Dự Án / ID</label>
                                 <input type="text" id="input-id" placeholder="VD: JOB102" oninput="updatePreview()" 
                                     class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono uppercase text-sm">
                             </div>
 
-                            <!-- Fields: Date & Time -->
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày Bắt Đầu</label>
@@ -73,8 +98,7 @@
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Giờ Mặc Định</label>
-                                    <select id="input-time" onchange="updatePreview()" 
-                                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer">
+                                    <select id="input-time" onchange="updatePreview()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer">
                                         <option value="">Tự động</option>
                                         <script>
                                             for(let i=0; i<24; i++) {
@@ -86,23 +110,15 @@
                                 </div>
                             </div>
 
-                            <!-- Field: Posting Rule -->
                             <div class="space-y-1.5">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quy Luật Lịch Đăng (Theo Bài Post)</label>
-                                <select id="input-rule" onchange="updatePreview()" 
-                                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quy Luật Lịch Đăng</label>
+                                <select id="input-rule" onchange="updatePreview()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
                                     <option value="">Cùng một ngày (Chia đều giờ)</option>
                                     <option value="daily">Đăng mỗi ngày</option>
                                     <option value="every_other_day">Đăng cách ngày</option>
-                                    <option value="3_per_week">3 bài/tuần (T2-4-6)</option>
-                                    <option value="4_per_week">4 bài/tuần (T2-4-6-7)</option>
-                                    <option value="mon_wed_fri">Thứ 2, 4, 6</option>
-                                    <option value="tue_thu_sat">Thứ 3, 5, 7</option>
-                                    <option value="sat_sun">Cuối tuần (T7, CN)</option>
                                 </select>
                             </div>
 
-                            <!-- Row: Photo Type & File Type -->
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Loại Ảnh</label>
@@ -110,14 +126,6 @@
                                         <option value="">Chọn...</option>
                                         <option value="NAIL">Nail</option>
                                         <option value="HAIR">Hair</option>
-                                        <option value="LASH">Lash</option>
-                                        <option value="BROWS">Brows</option>
-                                        <option value="WAXING">Waxing</option>
-                                        <option value="LIPS">Lips</option>
-                                        <option value="FOOD">Food</option>
-                                        <option value="SPA">Spa</option>
-                                        <option value="PROMO">Promotion</option>
-                                        <option value="TIPS">Tips</option>
                                     </select>
                                 </div>
                                 <div class="space-y-1.5">
@@ -126,23 +134,19 @@
                                         <option value="">Chọn...</option>
                                         <option value="IMAGE">IMAGE</option>
                                         <option value="VIDEO">VIDEO</option>
-                                        <option value="POSTER">POSTER</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <!-- Field: Post About -->
                             <div class="space-y-1.5">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Post về</label>
                                 <select id="input-post-about" onchange="updatePreview()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
                                     <option value="">Chọn chủ đề...</option>
                                     <option value="SERVICE">Service</option>
                                     <option value="POSTER">Poster</option>
-                                    <option value="CLIENT">Client Review</option>
                                 </select>
                             </div>
 
-                            <!-- Platforms Chips -->
                             <div class="space-y-2">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nền Tảng</label>
                                 <div class="flex flex-wrap gap-2" id="platform-chips">
@@ -154,7 +158,6 @@
                         </div>
                     </div>
 
-                    <!-- Panel: Grouping Settings (Gom Nhóm Bài Đăng) -->
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
                             <i data-lucide="layers" class="w-4 h-4 text-slate-400"></i>
@@ -164,13 +167,12 @@
                             <div class="space-y-1.5">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Chế độ nhóm bài đăng</label>
                                 <select id="input-group-mode" onchange="handleGroupModeChange()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
-                                    <option value="single">Không gom nhóm (Mỗi ảnh 1 bài đăng riêng)</option>
-                                    <option value="fixed">Gom nhóm cố định (Nhiều ảnh chung 1 bài)</option>
-                                    <option value="manual">Gom nhóm thủ công / Nhận diện AI 🤖</option>
+                                    <option value="single">Không gom nhóm (Mỗi ảnh 1 bài riêng)</option>
+                                    <option value="fixed">Gom nhóm cố định (Nhiều ảnh/bài)</option>
+                                    <option value="manual">Gom nhóm thủ công</option>
                                 </select>
                             </div>
 
-                            <!-- Conditional Field: Fixed Group Size -->
                             <div id="fixed-group-size-container" class="hidden space-y-1.5">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Số ảnh/video trong mỗi bài</label>
                                 <input type="number" id="input-group-size" value="3" min="2" oninput="updatePreview()" 
@@ -178,25 +180,15 @@
                             </div>
 
                             <div class="space-y-1.5">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Định dạng hậu tố (Nhiều ảnh trùng)</label>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Định dạng hậu tố</label>
                                 <select id="input-suffix-format" onchange="updatePreview()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
-                                    <option value="underscore">Dấu gạch dưới (_1, _2, _3)</option>
-                                    <option value="parentheses">Dấu ngoặc đơn ((1), (2), (3))</option>
-                                    <option value="alphabet">Chữ cái (_A, _B, _C)</option>
+                                    <option value="underscore">Dấu gạch dưới (_1, _2)</option>
+                                    <option value="parentheses">Dấu ngoặc đơn ((1), (2))</option>
                                 </select>
-                            </div>
-
-                            <!-- AI Assistant trigger -->
-                            <div id="ai-container" class="hidden pt-2 border-t border-slate-100">
-                                <button onclick="runAIGrouping()" id="btn-ai-group" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-md active:scale-95">
-                                    <i data-lucide="sparkles" class="w-4 h-4"></i>
-                                    Phân Tích & Gom Nhóm bằng AI
-                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Format Preview -->
                     <div class="bg-indigo-900 rounded-2xl p-6 text-white shadow-xl shadow-indigo-100">
                         <div class="flex items-center gap-2 mb-3">
                             <i data-lucide="eye" class="w-4 h-4 text-indigo-300"></i>
@@ -208,217 +200,163 @@
                     </div>
                 </div>
 
-                <!-- Right: File Manager -->
                 <div class="lg:col-span-8 flex flex-col gap-6">
-                    <!-- Dropzone -->
-                    <div id="dropzone" 
-                         class="relative group border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl bg-white transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer">
-                        <input type="file" id="file-input" multiple class="absolute inset-0 opacity-0 cursor-pointer z-10">
-                        <div class="px-6 py-16 flex flex-col items-center justify-center text-center">
-                            <div class="h-16 w-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
-                                <i data-lucide="upload-cloud" class="w-8 h-8"></i>
-                            </div>
-                            <h3 class="text-lg font-bold text-slate-800">Thêm Tệp Để Bắt Đầu</h3>
-                            <p class="text-slate-500 text-sm max-w-xs mx-auto">Kéo thả nhiều ảnh/video hoặc nhấp để chọn tệp từ thiết bị của bạn.</p>
+                    
+                    <div id="empty-state" class="relative border-2 border-dashed border-slate-300 rounded-2xl bg-white h-96 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div class="h-16 w-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                            <i data-lucide="folder-search" class="w-8 h-8"></i>
                         </div>
+                        <h3 class="text-lg font-bold text-slate-800">Chưa có tệp nào</h3>
+                        <p class="text-slate-500 text-sm max-w-xs mx-auto mt-2">Hãy nhập Folder ID của Google Drive ở menu bên trái và bấm Tải danh sách file.</p>
                     </div>
 
-                    <!-- File List -->
                     <div id="file-list-container" class="hidden flex flex-col gap-4">
                         <div class="px-6 py-4 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between sticky top-0 z-10">
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-slate-800">Cấu trúc Gom Nhóm & Lịch đăng</h3>
+                                <h3 class="font-bold text-slate-800">Cấu trúc Gom Nhóm & Tên Mới</h3>
                                 <span id="list-count" class="bg-slate-100 text-slate-600 py-0.5 px-2.5 rounded-lg text-xs font-bold">0</span>
                             </div>
-                            <button onclick="clearFiles()" class="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
-                                Xóa Tất Cả
-                            </button>
                         </div>
                         
-                        <div class="max-h-[800px] overflow-y-auto custom-scrollbar space-y-4" id="file-list">
-                            <!-- Items dynamically grouped and injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Empty State -->
-                    <div id="empty-state" class="py-20 flex flex-col items-center justify-center text-slate-400">
-                        <i data-lucide="files" class="w-12 h-12 mb-4 opacity-20"></i>
-                        <p class="text-sm font-medium">Danh sách trống. Hãy tải tệp lên.</p>
+                        <div class="max-h-[800px] overflow-y-auto custom-scrollbar space-y-4 pb-20" id="file-list">
+                            </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- AI Loading Modal -->
-    <div id="ai-loading-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div id="process-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-slate-100 text-center space-y-4">
             <div class="relative flex items-center justify-center">
-                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
-                <div class="absolute"><i data-lucide="sparkles" class="w-6 h-6 text-indigo-500 animate-pulse"></i></div>
+                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-emerald-500"></div>
+                <div class="absolute"><i data-lucide="cloud-upload" class="w-6 h-6 text-emerald-500"></i></div>
             </div>
-            <h3 class="text-lg font-bold text-slate-800">AI Đang Gom Nhóm Ảnh...</h3>
-            <p id="ai-status" class="text-slate-500 text-sm">Đang tải và chuẩn bị dữ liệu hình ảnh...</p>
+            <h3 class="text-lg font-bold text-slate-800">Đang cập nhật lên Drive...</h3>
+            <p id="process-status" class="text-slate-500 text-sm font-mono">Đang xử lý: 0/0</p>
             <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div id="ai-progress-bar" class="bg-indigo-600 h-full w-0 transition-all duration-300"></div>
+                <div id="process-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
             </div>
-        </div>
-    </div>
-
-    <!-- Image Lightbox Modal -->
-    <div id="lightbox-modal" class="fixed inset-0 bg-slate-900/85 backdrop-blur-sm z-50 flex items-center justify-center hidden" onclick="closeLightbox()">
-        <div class="relative max-w-4xl max-h-[90vh] mx-4 flex flex-col items-center" onclick="event.stopPropagation()">
-            <button onclick="closeLightbox()" class="absolute -top-12 right-0 text-white hover:text-indigo-300 transition-all flex items-center gap-1.5 font-bold text-sm bg-slate-950/40 px-3 py-1.5 rounded-lg backdrop-blur-md">
-                <i data-lucide="x" class="w-5 h-5"></i> Đóng
-            </button>
-            <img id="lightbox-img" class="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-white/10" src="" alt="Full preview">
-            <p id="lightbox-title" class="mt-4 text-white text-center font-mono font-bold text-xs bg-slate-950/80 px-4 py-2.5 rounded-full border border-white/10 max-w-lg truncate shadow-lg"></p>
         </div>
     </div>
 
     <script>
-        const apiKey = ""; // Runtime will supply the correct API key
-        let selectedFiles = []; // Elements: { file: File, objectUrl: string | null }
-        let selectedPlatforms = [];
-        let manualGroupMap = new Map(); // File index/identifier -> Group ID
+        // Google Drive Variables
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive';
+        let tokenClient;
+        let isAuthorized = false;
 
-        // Initialize Lucide Icons
+        // App Variables
+        let selectedFiles = []; // Format: { file: {name, type}, objectUrl, driveId }
+        let selectedPlatforms = [];
+        let manualGroupMap = new Map();
+
         lucide.createIcons();
 
-        // UI Element Selectors
-        const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('file-input');
-        const fileList = document.getElementById('file-list');
-        const fileListContainer = document.getElementById('file-list-container');
-        const emptyState = document.getElementById('empty-state');
-        const actionButtons = document.getElementById('action-buttons');
-        const fileCountBadge = document.getElementById('file-count-badge');
-        const formatPreview = document.getElementById('format-preview-text');
-        const listCount = document.getElementById('list-count');
-        const fixedGroupSizeContainer = document.getElementById('fixed-group-size-container');
-        const aiContainer = document.getElementById('ai-container');
-
-        // Event Listeners
-        fileInput.addEventListener('change', (e) => handleFiles(e));
-        
-        // Drag and Drop styling
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropzone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.classList.add('border-indigo-500', 'bg-indigo-50/30');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.classList.remove('border-indigo-500', 'bg-indigo-50/30');
-                if (eventName === 'drop') {
-                    handleFiles(e);
-                }
-            }, false);
-        });
-
-        function handleFiles(e) {
-            let files = [];
-            if (e.dataTransfer && e.dataTransfer.files) {
-                files = Array.from(e.dataTransfer.files);
-            } else if (e.target && e.target.files) {
-                files = Array.from(e.target.files);
-            }
-
-            if (files.length > 0) {
-                // Tự động dọn dẹp bộ nhớ tạm và xóa tệp cũ khi có tệp mới tải lên
-                selectedFiles.forEach(item => {
-                    if (item.objectUrl) {
-                        URL.revokeObjectURL(item.objectUrl);
-                    }
-                });
-                selectedFiles = [];
-                manualGroupMap.clear();
-
-                const newFiles = files.map(file => {
-                    let objectUrl = null;
-                    if (file.type.startsWith('image/')) {
-                        objectUrl = URL.createObjectURL(file);
-                    }
-                    return { file, objectUrl };
-                });
-                selectedFiles = newFiles;
-                updatePreview();
-            }
+        // ----------------------------------------------------
+        // 1. GOOGLE DRIVE AUTHENTICATION & FETCHING
+        // ----------------------------------------------------
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+        async function initializeGapiClient() {
+            await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
         }
+        function gisLoaded() {}
 
-        function removeFile(index) {
-            const removed = selectedFiles.splice(index, 1)[0];
-            if (removed && removed.objectUrl) {
-                URL.revokeObjectURL(removed.objectUrl);
-            }
+        function handleAuthClick() {
+            const clientId = document.getElementById('clientId').value.trim();
+            if (!clientId) return alert("Vui lòng nhập Client ID!");
 
-            // Re-align manual groups map
-            const newMap = new Map();
-            let offset = 0;
-            for (let i = 0; i <= selectedFiles.length + 1; i++) {
-                if (i === index) {
-                    offset = 1;
-                    continue;
-                }
-                if (manualGroupMap.has(i)) {
-                    newMap.set(i - offset, manualGroupMap.get(i));
-                }
-            }
-            manualGroupMap = newMap;
-            updatePreview();
-        }
-
-        // Trường hợp 1: Tách ảnh khỏi nhóm hiện tại và gán vào 1 nhóm mới độc lập hoàn toàn
-        function separateFromGroup(index) {
-            let maxGroupId = 0;
-            manualGroupMap.forEach((val) => {
-                if (val > maxGroupId) maxGroupId = val;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: SCOPES,
+                callback: async (resp) => {
+                    if (resp.error !== undefined) throw (resp);
+                    isAuthorized = true;
+                    document.getElementById('auth-section').classList.add('hidden');
+                    document.getElementById('drive-section').classList.remove('hidden');
+                },
             });
-            const newGroupId = maxGroupId + 1;
-            manualGroupMap.set(index, newGroupId);
-            updatePreview();
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
         }
 
-        function clearFiles() {
-            if (confirm("Bạn có chắc chắn muốn xóa tất cả các tệp?")) {
-                selectedFiles.forEach(item => {
-                    if (item.objectUrl) {
-                        URL.revokeObjectURL(item.objectUrl);
-                    }
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+            }
+            isAuthorized = false;
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('drive-section').classList.add('hidden');
+            clearWorkspace();
+        }
+
+        async function fetchDriveFiles() {
+            if (!isAuthorized) return alert("Bạn chưa đăng nhập Google Drive!");
+            const folderId = document.getElementById('folderId').value.trim();
+            if (!folderId) return alert("Vui lòng nhập Folder ID!");
+
+            document.getElementById('empty-state').querySelector('h3').innerText = "Đang tải dữ liệu từ Drive...";
+            
+            try {
+                let response = await gapi.client.drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false`,
+                    fields: 'files(id, name, mimeType, thumbnailLink)',
+                    pageSize: 500
                 });
-                selectedFiles = [];
+
+                const files = response.result.files;
+                if (!files || files.length === 0) {
+                    alert("Không tìm thấy file nào trong thư mục này.");
+                    clearWorkspace();
+                    return;
+                }
+
+                // Map Drive Files to our local format
+                selectedFiles = files.map(f => {
+                    return {
+                        file: { name: f.name, type: f.mimeType },
+                        objectUrl: f.thumbnailLink ? f.thumbnailLink.replace('=s220', '=s600') : null, // Get slightly larger thumbnail
+                        driveId: f.id
+                    };
+                });
+
                 manualGroupMap.clear();
                 updatePreview();
+
+            } catch (err) {
+                alert("Lỗi tải file: " + err.message);
+                clearWorkspace();
             }
+        }
+
+        // ----------------------------------------------------
+        // 2. CORE LOGIC (Renaming & UI Updates)
+        // ----------------------------------------------------
+        function clearWorkspace() {
+            selectedFiles = [];
+            manualGroupMap.clear();
+            updatePreview();
         }
 
         function togglePlatform(p) {
             const index = selectedPlatforms.indexOf(p);
-            if (index > -1) {
-                selectedPlatforms.splice(index, 1);
-            } else {
-                selectedPlatforms.push(p);
-            }
+            if (index > -1) selectedPlatforms.splice(index, 1);
+            else selectedPlatforms.push(p);
             updatePreview();
         }
 
         function handleGroupModeChange() {
             const mode = document.getElementById('input-group-mode').value;
-            if (mode === 'fixed') {
-                fixedGroupSizeContainer.classList.remove('hidden');
-                aiContainer.classList.add('hidden');
-            } else if (mode === 'manual') {
-                fixedGroupSizeContainer.classList.add('hidden');
-                aiContainer.classList.remove('hidden');
-            } else {
-                fixedGroupSizeContainer.classList.add('hidden');
-                aiContainer.classList.add('hidden');
-            }
+            const sizeContainer = document.getElementById('fixed-group-size-container');
+            if (mode === 'fixed') sizeContainer.classList.remove('hidden');
+            else sizeContainer.classList.add('hidden');
             updatePreview();
         }
 
@@ -428,13 +366,12 @@
         }
 
         function updatePreview() {
-            // Update Platform Chips UI
             document.querySelectorAll('.plat-chip').forEach(btn => {
                 const plat = btn.getAttribute('data-plat');
                 if (selectedPlatforms.includes(plat)) {
                     btn.className = 'plat-chip px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-indigo-600 border-indigo-600 text-white shadow-sm';
                 } else {
-                    btn.className = 'plat-chip px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-white border-slate-200 text-slate-500 hover:border-indigo-300';
+                    btn.className = 'plat-chip px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-white border-slate-200 text-slate-500';
                 }
             });
 
@@ -455,542 +392,169 @@
             const processedFiles = calculateNames(selectedFiles, formData);
             renderFileList(processedFiles, formData.groupMode);
 
-            // Update Global UI States
+            const fileListContainer = document.getElementById('file-list-container');
+            const emptyState = document.getElementById('empty-state');
+            const actionButtons = document.getElementById('action-buttons');
+            
             if (selectedFiles.length > 0) {
                 fileListContainer.classList.remove('hidden');
                 emptyState.classList.add('hidden');
                 actionButtons.classList.remove('hidden');
-                fileCountBadge.textContent = selectedFiles.length;
-                listCount.textContent = selectedFiles.length;
+                document.getElementById('file-count-badge').textContent = selectedFiles.length;
+                document.getElementById('list-count').textContent = selectedFiles.length;
             } else {
                 fileListContainer.classList.add('hidden');
                 emptyState.classList.remove('hidden');
+                emptyState.querySelector('h3').innerText = "Chưa có tệp nào";
                 actionButtons.classList.add('hidden');
             }
 
-            // Update sample preview
             const sample = processedFiles.length > 0 ? processedFiles[0].newName : 'CHUA_CO_TEP.ext';
-            formatPreview.textContent = sample;
-            
+            document.getElementById('format-preview-text').textContent = sample;
             lucide.createIcons();
         }
 
         function calculateNames(files, data) {
-            // Step 1: Assign files to logical groups
-            const fileGroupAssignments = []; // Index in file list -> Group Index
-            
+            const fileGroupAssignments = []; 
             if (data.groupMode === 'single') {
-                for (let i = 0; i < files.length; i++) {
-                    fileGroupAssignments[i] = i; // Each file has its own sequential group index
-                }
+                for (let i = 0; i < files.length; i++) fileGroupAssignments[i] = i;
             } else if (data.groupMode === 'fixed') {
-                for (let i = 0; i < files.length; i++) {
-                    fileGroupAssignments[i] = Math.floor(i / data.groupSize); // Grouped by chunks
-                }
+                for (let i = 0; i < files.length; i++) fileGroupAssignments[i] = Math.floor(i / data.groupSize);
             } else if (data.groupMode === 'manual') {
                 for (let i = 0; i < files.length; i++) {
-                    if (manualGroupMap.has(i)) {
-                        fileGroupAssignments[i] = manualGroupMap.get(i);
-                    } else {
-                        // Default fallback: assign to group 1
-                        fileGroupAssignments[i] = 1;
-                        manualGroupMap.set(i, 1);
-                    }
+                    if (manualGroupMap.has(i)) fileGroupAssignments[i] = manualGroupMap.get(i);
+                    else { fileGroupAssignments[i] = 1; manualGroupMap.set(i, 1); }
                 }
             }
 
-            // Map each unique Group ID to its sequential schedule index
             const uniqueGroupsInOrder = [];
             fileGroupAssignments.forEach(gId => {
-                if (!uniqueGroupsInOrder.includes(gId)) {
-                    uniqueGroupsInOrder.push(gId);
-                }
+                if (!uniqueGroupsInOrder.includes(gId)) uniqueGroupsInOrder.push(gId);
             });
 
-            // Map Group ID -> Sequential Index
             const groupScheduleIndices = new Map();
-            uniqueGroupsInOrder.forEach((gId, sIdx) => {
-                groupScheduleIndices.set(gId, sIdx);
-            });
+            uniqueGroupsInOrder.forEach((gId, sIdx) => groupScheduleIndices.set(gId, sIdx));
 
-            // Count occurrences of each group ID to determine if suffix is needed
             const groupCounts = new Map();
-            fileGroupAssignments.forEach(gId => {
-                groupCounts.set(gId, (groupCounts.get(gId) || 0) + 1);
-            });
-
-            // Suffix tracker for each group ID
+            fileGroupAssignments.forEach(gId => groupCounts.set(gId, (groupCounts.get(gId) || 0) + 1));
             const groupIndicesTracker = new Map();
 
-            const rawItems = files.map((fileObj, index) => {
+            return files.map((fileObj, index) => {
                 const file = fileObj.file;
                 const gId = fileGroupAssignments[index];
-                const schedIndex = groupScheduleIndices.get(gId); // Sequential post index
+                const schedIndex = groupScheduleIndices.get(gId); 
 
-                let formattedTime = data.time || '';
-                
-                // Distribute post hours if same day
-                if (!data.rule && uniqueGroupsInOrder.length > 1) {
-                    const startHour = data.time ? parseInt(data.time, 10) : 9;
-                    const step = Math.max(1, Math.floor(12 / uniqueGroupsInOrder.length));
-                    const hour = (startHour + schedIndex * step) % 24;
-                    formattedTime = hour.toString().padStart(2, '0');
-                } else if (!data.rule && !data.time) {
-                    formattedTime = '09';
-                }
-
+                let formattedTime = data.time || '09';
                 let formattedDate = '';
+
                 if (data.date) {
                     const [y, m, d] = data.date.split('-').map(Number);
                     let date = new Date(y, m - 1, d);
-
-                    if (data.rule === 'daily') {
-                        date.setDate(date.getDate() + schedIndex);
-                    } else if (data.rule === 'every_other_day') {
-                        date.setDate(date.getDate() + schedIndex * 2);
-                    } else if (data.rule === '3_per_week') {
-                        const week = Math.floor(schedIndex / 3);
-                        const offsets = [0, 2, 4];
-                        date.setDate(date.getDate() + week * 7 + offsets[schedIndex % 3]);
-                    } else if (data.rule === '4_per_week') {
-                        const week = Math.floor(schedIndex / 4);
-                        const offsets = [0, 2, 4, 5];
-                        date.setDate(date.getDate() + week * 7 + offsets[schedIndex % 4]);
-                    } else if (['mon_wed_fri', 'tue_thu_sat', 'sat_sun'].includes(data.rule)) {
-                        let count = 0;
-                        while (count <= schedIndex) {
-                            const dow = date.getDay();
-                            let match = false;
-                            if (data.rule === 'mon_wed_fri' && [1,3,5].includes(dow)) match = true;
-                            if (data.rule === 'tue_thu_sat' && [2,4,6].includes(dow)) match = true;
-                            if (data.rule === 'sat_sun' && [0,6].includes(dow)) match = true;
-                            
-                            if (match) {
-                                if (count === schedIndex) break;
-                                count++;
-                            }
-                            date.setDate(date.getDate() + 1);
-                        }
-                    }
-
+                    if (data.rule === 'daily') date.setDate(date.getDate() + schedIndex);
+                    else if (data.rule === 'every_other_day') date.setDate(date.getDate() + schedIndex * 2);
                     formattedDate = `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getFullYear()}`;
                 }
 
                 const dt = [formattedDate, formattedTime].filter(Boolean).join('-');
+                const parts = [data.id, dt, data.photoType, data.fileType, data.postAbout, data.platforms].filter(Boolean).map(s => s.toString().toUpperCase());
                 
-                // Construct basic folder/naming convention elements
-                const parts = [
-                    data.id, 
-                    dt, 
-                    data.photoType, 
-                    data.fileType, 
-                    data.postAbout,
-                    data.platforms
-                ]
-                .filter(Boolean)
-                .map(s => s.toString().toUpperCase());
-
                 const baseNameWithoutSuffix = parts.join('_');
                 const lastDotIndex = file.name.lastIndexOf('.');
                 const ext = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : '';
 
-                // Generate Suffix based on position in its own group
                 let suffix = '';
                 const totalInGroup = groupCounts.get(gId);
                 if (totalInGroup > 1) {
                     const curIdxInGroup = (groupIndicesTracker.get(gId) || 0) + 1;
                     groupIndicesTracker.set(gId, curIdxInGroup);
-
-                    if (data.suffixFormat === 'underscore') {
-                        suffix = `_${curIdxInGroup}`;
-                    } else if (data.suffixFormat === 'parentheses') {
-                        suffix = ` (${curIdxInGroup})`;
-                    } else if (data.suffixFormat === 'alphabet') {
-                        suffix = `_${String.fromCharCode(64 + curIdxInGroup)}`; // 1 -> A, 2 -> B...
-                    }
+                    if (data.suffixFormat === 'underscore') suffix = `_${curIdxInGroup}`;
+                    else if (data.suffixFormat === 'parentheses') suffix = ` (${curIdxInGroup})`;
                 }
 
-                const finalName = `${baseNameWithoutSuffix}${suffix}${ext}`;
-                return { file, original: file.name, newName: finalName, groupId: gId };
+                return { 
+                    file: file, 
+                    original: file.name, 
+                    newName: `${baseNameWithoutSuffix}${suffix}${ext}`, 
+                    groupId: gId,
+                    driveId: fileObj.driveId,
+                    objectUrl: fileObj.objectUrl
+                };
             });
-
-            return rawItems;
         }
 
-        // Helper to check if file is video
-        function isVideo(file) {
-            const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv'];
-            const fileName = file.name.toLowerCase();
-            return file.type.startsWith('video/') || videoExtensions.some(ext => fileName.endsWith(ext));
-        }
-
-        // Trường hợp 2: Khắc phục giới hạn 10 bài viết - Tạo bộ chọn động hoàn toàn
-        function getGroupOptionsHtml(selectedGId, activeGroups, maxGroupId) {
+        function getGroupOptionsHtml(selectedGId, maxGroupId) {
             let html = '';
-            
-            // Render toàn bộ các group ID hiện tại đang có dữ liệu
-            activeGroups.forEach(gId => {
-                html += `<option value="${gId}" ${selectedGId === gId ? 'selected' : ''}>Bài viết #${gId}</option>`;
+            const activeGroups = new Set(Array.from(manualGroupMap.values()));
+            activeGroups.add(1);
+            Array.from(activeGroups).sort((a,b)=>a-b).forEach(gId => {
+                html += `<option value="${gId}" ${selectedGId === gId ? 'selected' : ''}>Bài #${gId}</option>`;
             });
-
-            // Luôn bổ sung thêm lựa chọn tạo bài viết mới bằng cách lấy maxGroupId + 1
             const nextGroup = maxGroupId + 1;
             html += `<option value="${nextGroup}">+ Tạo bài mới (#${nextGroup})</option>`;
             return html;
         }
 
         function renderFileList(items, groupMode) {
-            if (items.length === 0) {
-                fileList.innerHTML = '';
-                return;
-            }
+            const fileList = document.getElementById('file-list');
+            if (items.length === 0) { fileList.innerHTML = ''; return; }
 
-            // Step 1: Group items by Group ID
             const groups = {};
             items.forEach((item, originalIndex) => {
-                if (!groups[item.groupId]) {
-                    groups[item.groupId] = [];
-                }
+                if (!groups[item.groupId]) groups[item.groupId] = [];
                 groups[item.groupId].push({ ...item, originalIndex });
             });
 
-            // Step 2: Sort group IDs numerically
-            const sortedGroupIds = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
-
-            // Xác định maxGroupId và danh sách các group đang hoạt động để làm menu dropdown động
-            const activeGroups = new Set();
-            manualGroupMap.forEach(val => activeGroups.add(val));
-            activeGroups.add(1); // Luôn có ít nhất bài viết 1
-            const sortedActiveGroups = Array.from(activeGroups).sort((a, b) => a - b);
-
             let maxGroupId = 1;
-            manualGroupMap.forEach((val) => {
-                if (val > maxGroupId) maxGroupId = val;
-            });
+            manualGroupMap.forEach(val => { if (val > maxGroupId) maxGroupId = val; });
 
             let html = '';
-
-            sortedGroupIds.forEach(gId => {
+            Object.keys(groups).sort((a, b) => Number(a) - Number(b)).forEach(gId => {
                 const groupItems = groups[gId];
-                
-                // Color configuration of Post Group headers for clear verification
-                const groupColorClasses = [
-                    'from-indigo-50 to-blue-50 border-indigo-100 text-indigo-800',
-                    'from-pink-50 to-rose-50 border-pink-100 text-pink-800',
-                    'from-emerald-50 to-teal-50 border-emerald-100 text-emerald-800',
-                    'from-amber-50 to-orange-50 border-amber-100 text-amber-800',
-                    'from-cyan-50 to-sky-50 border-cyan-100 text-cyan-800',
-                    'from-purple-50 to-fuchsia-50 border-purple-100 text-purple-800',
-                    'from-teal-50 to-emerald-50 border-teal-100 text-teal-800',
-                    'from-violet-50 to-purple-50 border-violet-100 text-violet-800',
-                    'from-rose-50 to-pink-50 border-rose-100 text-rose-800'
-                ];
-                const colorClass = groupColorClasses[gId % groupColorClasses.length];
-
                 html += `
-                    <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white transition-all hover:shadow-md">
-                        <div class="px-5 py-3.5 bg-gradient-to-r ${colorClass} border-b border-slate-200 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <i data-lucide="package" class="w-4 h-4"></i>
-                                <span class="font-bold text-xs uppercase tracking-wider">Bài Viết #${gId}</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/80 font-bold shadow-xs">${groupItems.length} tệp</span>
-                            </div>
-                            <span class="text-[10px] font-bold opacity-75 uppercase tracking-wide">Lịch Đăng Chung</span>
+                    <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white mb-4">
+                        <div class="px-5 py-3 bg-slate-100 border-b border-slate-200 flex justify-between">
+                            <span class="font-bold text-xs uppercase text-slate-700">Bài Viết #${gId}</span>
+                            <span class="text-[10px] font-bold text-slate-500">${groupItems.length} tệp</span>
                         </div>
                         <ul class="divide-y divide-slate-100">
                 `;
 
                 groupItems.forEach(item => {
-                    const isVid = isVideo(item.file);
-                    
-                    // Generate Preview Thumbnail
-                    let previewHtml = '';
-                    const fileObj = selectedFiles[item.originalIndex];
-                    const thumbUrl = fileObj ? fileObj.objectUrl : null;
+                    const isVid = item.file.type.includes('video');
+                    let previewHtml = isVid 
+                        ? `<div class="h-12 w-12 rounded bg-slate-900 flex items-center justify-center text-white"><i data-lucide="video" class="w-5 h-5"></i></div>`
+                        : (item.objectUrl 
+                            ? `<img src="${item.objectUrl}" class="h-12 w-12 rounded object-cover border">`
+                            : `<div class="h-12 w-12 rounded bg-slate-100 flex items-center justify-center"><i data-lucide="image" class="w-5 h-5 text-slate-400"></i></div>`);
 
-                    if (isVid) {
-                        previewHtml = `
-                            <div class="flex-shrink-0 h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-slate-900 flex flex-col items-center justify-center text-orange-400 border border-slate-200 shadow-inner relative group">
-                                <i data-lucide="video" class="w-6 h-6"></i>
-                                <span class="absolute bottom-1 right-1 text-[8px] bg-black/85 text-white px-1 rounded font-bold uppercase tracking-wider">VIDEO</span>
-                            </div>
-                        `;
-                    } else if (thumbUrl) {
-                        previewHtml = `
-                            <div class="flex-shrink-0 h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group cursor-pointer" onclick="viewLargeImage('${thumbUrl}', '${item.newName}')">
-                                <img src="${thumbUrl}" class="h-full w-full object-cover group-hover:scale-110 transition-transform duration-300" alt="Preview">
-                                <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-200">
-                                    <i data-lucide="zoom-in" class="w-5 h-5 text-white"></i>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        previewHtml = `
-                            <div class="flex-shrink-0 h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm">
-                                <i data-lucide="image" class="w-6 h-6"></i>
-                            </div>
-                        `;
-                    }
-
-                    // Suffix selector if manual editing is desired
-                    let manualControlHtml = '';
-                    if (groupMode === 'manual') {
-                        manualControlHtml = `
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Chuyển qua:</span>
-                                <select onchange="changeFileGroup(${item.originalIndex}, this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none text-slate-700 hover:border-indigo-500 transition-colors cursor-pointer shadow-xs">
-                                    ${getGroupOptionsHtml(Number(gId), sortedActiveGroups, maxGroupId)}
-                                </select>
-                            </div>
-                        `;
-                    }
+                    let manualControlHtml = groupMode === 'manual' 
+                        ? `<select onchange="changeFileGroup(${item.originalIndex}, this.value)" class="text-xs border rounded px-1 py-1 outline-none">${getGroupOptionsHtml(Number(gId), maxGroupId)}</select>` 
+                        : '';
 
                     html += `
-                        <li class="p-4 sm:px-5 hover:bg-slate-50/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-center flex-1 min-w-0 gap-4">
+                        <li class="p-3 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
                                 ${previewHtml}
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-[10px] font-bold text-slate-400 truncate mb-1">Cũ: ${item.original}</p>
-                                    <p class="text-sm font-bold text-indigo-700 break-all font-mono select-all decoration-indigo-200 decoration-wavy hover:underline" title="Nhấp đúp để sao chép">${item.newName}</p>
+                                <div>
+                                    <p class="text-[10px] text-slate-400 truncate w-40 sm:w-64">Cũ: ${item.original}</p>
+                                    <p class="text-sm font-bold text-indigo-700 break-all font-mono">${item.newName}</p>
                                 </div>
                             </div>
-                            <div class="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0 border-t sm:border-0 pt-3 sm:pt-0 border-slate-100">
-                                ${manualControlHtml}
-                                
-                                <!-- Trường hợp 1: Thêm nút chiếc kéo để tách ảnh khỏi nhóm hiện tại thành bài viết độc lập -->
-                                <button onclick="separateFromGroup(${item.originalIndex})" class="p-2 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all" title="Tách thành bài viết độc lập">
-                                    <i data-lucide="scissors" class="w-4.5 h-4.5"></i>
-                                </button>
-
-                                <button onclick="removeFile(${item.originalIndex})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Xóa tệp hoàn toàn">
-                                    <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
-                                </button>
-                            </div>
+                            <div>${manualControlHtml}</div>
                         </li>
                     `;
                 });
-
-                html += `
-                        </ul>
-                    </div>
-                `;
+                html += `</ul></div>`;
             });
-
             fileList.innerHTML = html;
-            lucide.createIcons();
         }
 
-        // Lightbox Functions for Premium Checking
-        function viewLargeImage(url, name) {
-            document.getElementById('lightbox-img').src = url;
-            document.getElementById('lightbox-title').textContent = name;
-            document.getElementById('lightbox-modal').classList.remove('hidden');
-            lucide.createIcons();
-        }
-
-        function closeLightbox() {
-            document.getElementById('lightbox-modal').classList.add('hidden');
-        }
-
-        // Image resizing helper using Canvas for Gemini processing payloads
-        function resizeAndGetBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 250;
-                        const MAX_HEIGHT = 250;
-                        let width = img.width;
-                        let height = img.height;
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
-                            }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                        resolve({
-                            base64: dataUrl.split(',')[1],
-                            mimeType: 'image/jpeg'
-                        });
-                    }
-                    img.onerror = () => reject(new Error("Lỗi tải ảnh"));
-                    img.src = e.target.result;
-                }
-                reader.onerror = () => reject(new Error("Lỗi đọc tệp"));
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // Exponential backoff fetch helper for Gemini API
-        async function fetchWithRetry(url, options, maxRetries = 5) {
-            let delay = 1000;
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.ok) return await response.json();
-                    if (response.status === 429 || response.status >= 500) {
-                        // Retry with backoff
-                    } else {
-                        const errText = await response.text();
-                        throw new Error(`API Error: ${response.status} - ${errText}`);
-                    }
-                } catch (error) {
-                    if (i === maxRetries - 1) throw error;
-                }
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
-            }
-        }
-
-        // Run Gemini 2.5 AI Image Grouping
-        async function runAIGrouping() {
-            const images = selectedFiles.map((fObj, i) => ({ file: fObj.file, index: i })).filter(item => !isVideo(item.file));
-            
-            if (images.length === 0) {
-                alert("Hãy tải các tệp ảnh lên để thực hiện gom nhóm bằng AI.");
-                return;
-            }
-
-            const modal = document.getElementById('ai-loading-modal');
-            const status = document.getElementById('ai-status');
-            const progressBar = document.getElementById('ai-progress-bar');
-            
-            modal.classList.remove('hidden');
-            status.textContent = "Đang xử lý thu nhỏ kích thước hình ảnh...";
-            progressBar.style.width = "20%";
-
-            try {
-                const resizedImages = [];
-                for (let i = 0; i < images.length; i++) {
-                    status.textContent = `Đang tối ưu ảnh (${i + 1}/${images.length})...`;
-                    progressBar.style.width = `${20 + Math.floor((i / images.length) * 40)}%`;
-                    try {
-                        const payload = await resizeAndGetBase64(images[i].file);
-                        resizedImages.push({
-                            index: images[i].index,
-                            base64: payload.base64,
-                            mimeType: payload.mimeType
-                        });
-                    } catch (e) {
-                        console.warn("Bỏ qua ảnh không đọc được", e);
-                    }
-                }
-
-                status.textContent = "AI đang phân tích góc chụp và nhóm các sản phẩm...";
-                progressBar.style.width = "75%";
-
-                const prompt = "Hãy xem kỹ các hình ảnh được tải lên (được đánh dấu thứ tự từ 1 đến N). " +
-                               "Phân tích các sản phẩm, góc chụp, hoặc bộ sản phẩm/dịch vụ xuất hiện trong ảnh. " +
-                               "Gom nhóm những bức ảnh chụp cùng một sản phẩm/bộ sản phẩm, cùng mẫu móng (nail), cùng kiểu tóc, " +
-                               "hoặc thuộc cùng một buổi chụp (different angles of the exact same product/service). " +
-                               "Gán cho mỗi nhóm một số ID nguyên bắt đầu từ 1. " +
-                               "Trả về kết quả dưới dạng đối tượng JSON khớp với cấu trúc sơ đồ được yêu cầu.";
-
-                const contentsParts = [
-                    { text: prompt }
-                ];
-                resizedImages.forEach((img, i) => {
-                    contentsParts.push({ text: `Hình số [${img.index}]:` });
-                    contentsParts.push({
-                        inlineData: {
-                            mimeType: img.mimeType,
-                            data: img.base64
-                        }
-                    });
-                });
-
-                const systemPrompt = "Bạn là trợ lý phân loại hình ảnh chuyên nghiệp cho Social Media. Hãy gom nhóm ảnh dựa trên tính tương đồng thị giác cao (cùng 1 bộ sản phẩm/dịch vụ). Trả về JSON có cấu trúc.";
-
-                const payload = {
-                    contents: [{
-                        role: "user",
-                        parts: contentsParts
-                    }],
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "OBJECT",
-                            properties: {
-                                groupings: {
-                                    type: "ARRAY",
-                                    items: {
-                                        type: "OBJECT",
-                                        properties: {
-                                            fileIndex: { type: "INTEGER" },
-                                            groupId: { type: "INTEGER" }
-                                        },
-                                        required: ["fileIndex", "groupId"]
-                                    }
-                                }
-                            },
-                            required: ["groupings"]
-                        }
-                    }
-                };
-
-                const responseData = await fetchWithRetry(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload)
-                    }
-                );
-
-                const textResult = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!textResult) {
-                    throw new Error("Không nhận được dữ liệu phân tích từ AI.");
-                }
-
-                const result = JSON.parse(textResult);
-                if (result && result.groupings) {
-                    result.groupings.forEach(item => {
-                        manualGroupMap.set(item.fileIndex, item.groupId);
-                    });
-                    
-                    // Assign default group for any file that wasn't classified or is video
-                    for (let i = 0; i < selectedFiles.length; i++) {
-                        if (!manualGroupMap.has(i)) {
-                            manualGroupMap.set(i, 1);
-                        }
-                    }
-
-                    status.textContent = "Hoàn thành gom nhóm thành công!";
-                    progressBar.style.width = "100%";
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        updatePreview();
-                    }, 800);
-                } else {
-                    throw new Error("Dữ liệu gom nhóm AI không đúng cấu trúc.");
-                }
-
-            } catch (error) {
-                console.error(error);
-                alert("Đã xảy ra lỗi khi phân tích bằng AI: " + error.message);
-                modal.classList.add('hidden');
-            }
-        }
-
-        async function downloadZip() {
+        // ----------------------------------------------------
+        // 3. RENAME ON GOOGLE DRIVE API
+        // ----------------------------------------------------
+        async function applyRenameToDrive() {
             if (selectedFiles.length === 0) return;
             
-            const zip = new JSZip();
             const formData = {
                 id: document.getElementById('input-id').value.toUpperCase(),
                 date: document.getElementById('input-date').value,
@@ -1005,13 +569,37 @@
                 suffixFormat: document.getElementById('input-suffix-format').value
             };
 
-            const items = calculateNames(selectedFiles, formData);
-            items.forEach(item => {
-                zip.file(item.newName, item.file);
-            });
+            const itemsToRename = calculateNames(selectedFiles, formData);
+            const total = itemsToRename.length;
+            
+            const modal = document.getElementById('process-modal');
+            const status = document.getElementById('process-status');
+            const progress = document.getElementById('process-progress-bar');
+            
+            modal.classList.remove('hidden');
 
-            const content = await zip.generateAsync({type: "blob"});
-            saveAs(content, `renamed_assets_${Date.now()}.zip`);
+            let successCount = 0;
+            for (let i = 0; i < total; i++) {
+                const item = itemsToRename[i];
+                status.textContent = `Đang xử lý: ${i + 1}/${total} (${item.newName})`;
+                progress.style.width = `${((i + 1) / total) * 100}%`;
+
+                try {
+                    await gapi.client.drive.files.update({
+                        fileId: item.driveId,
+                        resource: { name: item.newName }
+                    });
+                    successCount++;
+                } catch (err) {
+                    console.error("Lỗi khi đổi tên file:", item.original, err);
+                }
+            }
+
+            status.textContent = `Hoàn tất! Cập nhật thành công ${successCount}/${total} file.`;
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                fetchDriveFiles(); // Tải lại danh sách để thấy tên mới
+            }, 2000);
         }
     </script>
 </body>
